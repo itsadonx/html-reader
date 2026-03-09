@@ -62,31 +62,40 @@ cd "D:\New folder"
 Press Enter.  
 *(If your project is somewhere else, use that path instead.)*
 
-**B2.2 – Initialize Git**
+**B2.2 – Set your Git identity (do this once per computer)**
+
+Git needs your name and email for the commit. Use the **same email** as your GitHub account, and any name you like:
+```powershell
+git config --global user.email "your-email@example.com"
+git config --global user.name "Your Name"
+```
+Replace `your-email@example.com` and `Your Name` with your real email and name. Then continue below.
+
+**B2.3 – Initialize Git**
 ```powershell
 git init
 ```
 Press Enter. You should see: `Initialized empty Git repository in D:\New folder\.git\`
 
-**B2.3 – Add all files**
+**B2.4 – Add all files**
 ```powershell
 git add .
 ```
 Press Enter. (No message is normal.)
 
-**B2.4 – Create the first commit**
+**B2.5 – Create the first commit**
 ```powershell
 git commit -m "Initial commit - HTML Reader app"
 ```
 Press Enter. You should see a list of files and “X files changed”.
 
-**B2.5 – Name the main branch**
+**B2.6 – Name the main branch**
 ```powershell
 git branch -M main
 ```
 Press Enter.
 
-**B2.6 – Connect to your GitHub repo**
+**B2.7 – Connect to your GitHub repo**
 
 Use the URL from Step B1. Replace `YOUR_USERNAME` with your GitHub username and `html-reader` with your repo name if you chose a different one:
 ```powershell
@@ -98,7 +107,7 @@ git remote add origin https://github.com/johndoe/html-reader.git
 ```
 Press Enter.
 
-**B2.7 – Push the code to GitHub**
+**B2.8 – Push the code to GitHub**
 ```powershell
 git push -u origin main
 ```
