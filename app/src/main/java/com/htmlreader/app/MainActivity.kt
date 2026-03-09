@@ -2,10 +2,14 @@ package com.htmlreader.app
 
 import android.annotation.SuppressLint
 import android.content.Intent
+import android.content.Context
 import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Bundle
+import android.print.PrintAttributes
+import android.print.PrintManager
 import android.view.View
+import android.webkit.JavascriptInterface
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
@@ -58,6 +62,8 @@ class MainActivity : AppCompatActivity() {
             allowContentAccess = true
         }
 
+        webView.addJavascriptInterface(PrintBridge(this), "AndroidPrint")
+
         webView.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(
                 view: WebView?,
@@ -79,6 +85,10 @@ class MainActivity : AppCompatActivity() {
             override fun onPageFinished(view: WebView?, url: String?) {
                 super.onPageFinished(view, url)
                 progressBar.visibility = View.GONE
+                view?.evaluateJavascript(
+                    "(function(){ window.print = function(){ if(window.AndroidPrint) window.AndroidPrint.print(); }; })();",
+                    null
+                )
             }
         }
 
@@ -136,6 +146,24 @@ class MainActivity : AppCompatActivity() {
 
     private fun loadUri(uri: Uri) {
         webView.loadUrl(uri.toString())
+    }
+
+    private fun printCurrentPage() {
+        val printManager = getSystemService(Context.PRINT_SERVICE) as? PrintManager
+        if (printManager == null) {
+            Toast.makeText(this, "Print not available", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val jobName = "HTML Reader - ${System.currentTimeMillis()}"
+        val adapter = webView.createPrintDocumentAdapter(jobName)
+        printManager.print(jobName, adapter, PrintAttributes.Builder().build())
+    }
+
+    class PrintBridge(private val activity: MainActivity) {
+        @JavascriptInterface
+        fun print() {
+            activity.runOnUiThread { activity.printCurrentPage() }
+        }
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
