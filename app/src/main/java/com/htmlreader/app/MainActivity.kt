@@ -4,8 +4,6 @@ import android.annotation.SuppressLint
 import android.content.Intent
 import android.content.Context
 import android.graphics.Bitmap
-import android.graphics.Canvas
-import android.graphics.Color
 import android.net.Uri
 import android.os.Bundle
 import android.print.PrintAttributes
@@ -18,7 +16,6 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.ProgressBar
 import android.widget.Toast
-import androidx.print.PrintHelper
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
@@ -201,33 +198,17 @@ class MainActivity : AppCompatActivity() {
 
     private fun printCurrentPage() {
         runOnUiThread {
-            val w = webView.width
-            val h = webView.height
-            if (w <= 0 || h <= 0) {
-                Toast.makeText(this, "Content not ready. Try again.", Toast.LENGTH_SHORT).show()
+            val pm = getSystemService(Context.PRINT_SERVICE) as? PrintManager
+            if (pm == null) {
+                Toast.makeText(this, "Print not available", Toast.LENGTH_SHORT).show()
                 return@runOnUiThread
             }
-            val bitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
-            val canvas = Canvas(bitmap)
-            canvas.drawColor(Color.WHITE)
-            webView.draw(canvas)
-            val printHelper = PrintHelper(this)
-            printHelper.scaleMode = PrintHelper.SCALE_MODE_FIT
             val jobName = getString(R.string.app_name) + " Document"
-            if (printHelper.printBitmap(jobName, bitmap)) {
-                // Print dialog shown
-            } else {
-                try {
-                    val pm = getSystemService(Context.PRINT_SERVICE) as? PrintManager
-                    if (pm != null) {
-                        val adapter = webView.createPrintDocumentAdapter(jobName)
-                        pm.print(jobName, adapter, PrintAttributes.Builder().build())
-                    } else {
-                        Toast.makeText(this, "Print not available", Toast.LENGTH_SHORT).show()
-                    }
-                } catch (e: Exception) {
-                    Toast.makeText(this, "Print failed: ${e.message}", Toast.LENGTH_LONG).show()
-                }
+            try {
+                val adapter = webView.createPrintDocumentAdapter(jobName)
+                pm.print(jobName, adapter, PrintAttributes.Builder().build())
+            } catch (e: Exception) {
+                Toast.makeText(this, "Print failed: ${e.message}", Toast.LENGTH_LONG).show()
             }
         }
     }
