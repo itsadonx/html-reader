@@ -6,8 +6,6 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Bundle
-import android.os.Handler
-import android.os.Looper
 import android.print.PrintAttributes
 import android.print.PrintManager
 import android.view.View
@@ -27,6 +25,7 @@ import androidx.core.content.edit
 class MainActivity : AppCompatActivity() {
 
     private lateinit var webView: WebView
+    private lateinit var printWebView: WebView
     private lateinit var progressBar: ProgressBar
     private lateinit var toolbar: Toolbar
 
@@ -53,6 +52,7 @@ class MainActivity : AppCompatActivity() {
         supportActionBar?.setDisplayShowTitleEnabled(false)
 
         webView = findViewById(R.id.webView)
+        printWebView = findViewById(R.id.printWebView)
         progressBar = findViewById(R.id.progressBar)
 
         webView.settings.apply {
@@ -62,6 +62,22 @@ class MainActivity : AppCompatActivity() {
             useWideViewPort = true
             allowFileAccess = true
             allowContentAccess = true
+        }
+
+        printWebView.settings.apply {
+            javaScriptEnabled = true
+            domStorageEnabled = true
+            loadWithOverviewMode = true
+            useWideViewPort = true
+            allowFileAccess = true
+            allowContentAccess = true
+        }
+
+        printWebView.webViewClient = object : WebViewClient() {
+            override fun onPageFinished(view: WebView?, url: String?) {
+                super.onPageFinished(view, url)
+                view?.let { doPrintFromWebView(it) }
+            }
         }
 
         webView.addJavascriptInterface(PrintBridge(this), "HtmlReaderPrint")
@@ -220,22 +236,35 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun printCurrentPage() {
-        if (isFinishing) return
+        if (isFinishing || !::webView.isInitialized) return
         val pm = getSystemService(Context.PRINT_SERVICE) as? PrintManager
         if (pm == null) {
             Toast.makeText(this, "Print is not available on this device.", Toast.LENGTH_LONG).show()
             return
         }
-        Handler(Looper.getMainLooper()).postDelayed({
-            if (isFinishing || !::webView.isInitialized) return@postDelayed
-            val jobName = "EntrancePass-Document"
-            try {
-                val adapter = webView.createPrintDocumentAdapter(jobName)
-                pm.print(jobName, adapter, PrintAttributes.Builder().build())
-            } catch (e: Exception) {
-                Toast.makeText(this, "Print failed: ${e.message}", Toast.LENGTH_LONG).show()
-            }
-        }, 400)
+        val url = webView.url ?: "file:///android_asset/index.html"
+        if (url.isBlank() || url == "about:blank") {
+            Toast.makeText(this, "Nothing to print.", Toast.LENGTH_SHORT).show()
+            return
+        }
+        Toast.makeText(this, "Preparing to print…", Toast.LENGTH_SHORT).show()
+        printWebView.loadUrl(url)
+    }
+
+    private fun doPrintFromWebView(webViewForPrint: WebView) {
+        if (isFinishing) return
+        val pm = getSystemService(Context.PRINT_SERVICE) as? PrintManager
+        if (pm == null) {
+            Toast.makeText(this, "Print not available.", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val jobName = "EntrancePass-" + System.currentTimeMillis()
+        try {
+            val adapter = webViewForPrint.createPrintDocumentAdapter(jobName)
+            pm.print(jobName, adapter, PrintAttributes.Builder().build())
+        } catch (e: Exception) {
+            Toast.makeText(this, "Print failed: ${e.message}", Toast.LENGTH_LONG).show()
+        }
     }
 
     class PrintBridge(private val activity: MainActivity) {
