@@ -6,6 +6,8 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.print.PrintAttributes
 import android.print.PrintManager
 import android.view.View
@@ -89,6 +91,7 @@ class MainActivity : AppCompatActivity() {
                 super.onPageFinished(view, url)
                 progressBar.visibility = View.GONE
                 injectPrintOverride(view)
+                invalidateOptionsMenu()
             }
         }
 
@@ -100,12 +103,24 @@ class MainActivity : AppCompatActivity() {
 
         toolbar.setOnMenuItemClickListener { item ->
             when (item.itemId) {
-                R.id.action_open_file -> {
-                    openHtmlFilePicker()
+                R.id.action_back -> {
+                    if (webView.canGoBack()) webView.goBack()
+                    true
+                }
+                R.id.action_forward -> {
+                    if (webView.canGoForward()) webView.goForward()
+                    true
+                }
+                R.id.action_reload -> {
+                    webView.reload()
                     true
                 }
                 R.id.action_print -> {
                     printCurrentPage()
+                    true
+                }
+                R.id.action_open_file -> {
+                    openHtmlFilePicker()
                     true
                 }
                 else -> false
@@ -136,6 +151,14 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         })
+    }
+
+    override fun onPrepareOptionsMenu(menu: android.view.Menu): Boolean {
+        if (::webView.isInitialized) {
+            menu.findItem(R.id.action_back)?.isEnabled = webView.canGoBack()
+            menu.findItem(R.id.action_forward)?.isEnabled = webView.canGoForward()
+        }
+        return super.onPrepareOptionsMenu(menu)
     }
 
     private fun openHtmlFilePicker() {
@@ -197,20 +220,22 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun printCurrentPage() {
-        runOnUiThread {
-            val pm = getSystemService(Context.PRINT_SERVICE) as? PrintManager
-            if (pm == null) {
-                Toast.makeText(this, "Print not available", Toast.LENGTH_SHORT).show()
-                return@runOnUiThread
-            }
-            val jobName = getString(R.string.app_name) + " Document"
+        if (isFinishing) return
+        val pm = getSystemService(Context.PRINT_SERVICE) as? PrintManager
+        if (pm == null) {
+            Toast.makeText(this, "Print is not available on this device.", Toast.LENGTH_LONG).show()
+            return
+        }
+        Handler(Looper.getMainLooper()).postDelayed({
+            if (isFinishing || !::webView.isInitialized) return@postDelayed
+            val jobName = "EntrancePass-Document"
             try {
                 val adapter = webView.createPrintDocumentAdapter(jobName)
                 pm.print(jobName, adapter, PrintAttributes.Builder().build())
             } catch (e: Exception) {
                 Toast.makeText(this, "Print failed: ${e.message}", Toast.LENGTH_LONG).show()
             }
-        }
+        }, 400)
     }
 
     class PrintBridge(private val activity: MainActivity) {

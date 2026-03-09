@@ -9,5 +9,6 @@
     </style>
     <style name="ThemeOverlay.HtmlReader.AppBar" parent="">
         <item name="android:windowLightStatusBar">false</item>
+        <item name="colorOnPrimary">@color/white</item>
     </style>
 </resources>
