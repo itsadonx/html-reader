@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Cancel Approval System</title>
+    <link href="https://fonts.googleapis.com/css2?family=Kalam:wght@400;700&display=swap" rel="stylesheet">
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f5f5f5;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            padding: 30px;
+        }
+
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+            text-align: center;
+            font-size: 28px;
+        }
+
+        .search-container {
+            margin-bottom: 20px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .search-input {
+            flex: 1;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: #3498db;
+        }
+
+        .status-badge {
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+            display: inline-block;
+        }
+
+        .status-pending {
+            background-color: #fff3cd;
+            color: #856404;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            font-size: 14px;
+        }
+
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+
+        th {
+            background-color: #3498db;
+            color: white;
+            font-weight: bold;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        tr:hover {
+            background-color: #f9f9f9;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+
+        .btn-approve, .btn-reject {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            transition: all 0.3s;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .btn-approve {
+            background-color: #27ae60;
+            color: white;
+        }
+
+        .btn-approve:hover {
+            background-color: #229954;
+        }
+
+        .btn-reject {
+            background-color: #e74c3c;
+            color: white;
+        }
+
+        .btn-reject:hover {
+            background-color: #c0392b;
+        }
+
+        .btn-approve:disabled, .btn-reject:disabled {
+            background-color: #95a5a6;
+            cursor: not-allowed;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #95a5a6;
+            font-size: 16px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #3498db;
+            font-size: 16px;
+        }
+
+        .status-message {
+            padding: 12px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .status-success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status-error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .status-info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
+        .transaction-details {
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 5px;
+        }
+
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+            font-size: 13px;
+        }
+
+        .detail-label {
+            font-weight: bold;
+            color: #555;
+        }
+
+        .detail-value {
+            color: #333;
+        }
+
+        .filter-buttons {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            justify-content: center;
+        }
+
+        .filter-btn {
+            padding: 10px 20px;
+            border: 2px solid #3498db;
+            background-color: white;
+            color: #3498db;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+
+        .filter-btn:hover {
+            background-color: #3498db;
+            color: white;
+        }
+
+        .filter-btn.active {
+            background-color: #3498db;
+            color: white;
+        }
+
+        .status-approved {
+            background-color: #d4edda;
+            color: #155724;
+        }
+
+        .status-rejected {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Cancel Approval System</h1>
+        
+        <div id="statusMessage" class="status-message"></div>
+        
+        <div class="filter-buttons">
+            <button class="filter-btn active" data-status="pending" onclick="filterByStatus('pending', this)">Pending</button>
+            <button class="filter-btn" data-status="approved" onclick="filterByStatus('approved', this)">Approved</button>
+            <button class="filter-btn" data-status="rejected" onclick="filterByStatus('rejected', this)">Declined</button>
+            <button class="filter-btn" data-status="all" onclick="filterByStatus('all', this)">All</button>
+        </div>
+        
+        <div class="search-container">
+            <input type="text" id="searchInput" class="search-input" placeholder="Search by Reference Number, Address, Entry Type, or Created By...">
+        </div>
+
+        <div id="loadingMessage" class="loading">Loading pending cancellations...</div>
+
+        <table id="approvalTable" style="display: none;">
+            <thead>
+                <tr>
+                    <th>Reference Number</th>
+                    <th>Date/Time</th>
+                    <th>Entry Type</th>
+                    <th>Address</th>
+                    <th>Total Amount</th>
+                    <th>Created By</th>
+                    <th>Requested At</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="approvalTableBody">
+            </tbody>
+        </table>
+
+        <div id="emptyState" class="empty-state" style="display: none;">
+            No pending cancellation requests found.
+        </div>
+    </div>
+
+    <script>
+        // Firebase Configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyBJTqZ7bCZE3REh4VN2--iXR20EVuth-7U",
+            authDomain: "entrancepass-2fda9.firebaseapp.com",
+            databaseURL: "https://entrancepass-2fda9-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "entrancepass-2fda9",
+            storageBucket: "entrancepass-2fda9.firebasestorage.app",
+            messagingSenderId: "192248839826",
+            appId: "1:192248839826:web:dcef6aeb1d18bf3d1df04b",
+            measurementId: "G-T0CS6PD0YY"
+        };
+
+        // Initialize Firebase
+        let db = null;
+        let firebaseInitialized = false;
+        let pendingCancellations = [];
+        let approvedCancellations = [];
+        let rejectedCancellations = [];
+        let allCancellations = [];
+        let filteredCancellations = [];
+        let currentFilter = 'pending';
+
+        // Function to initialize Firebase
+        function initializeFirebase() {
+            if (firebaseInitialized && db) {
+                return true;
+            }
+
+            try {
+                if (typeof firebase === 'undefined') {
+                    console.error('Firebase is not loaded.');
+                    return false;
+                }
+
+                let app;
+                try {
+                    app = firebase.app();
+                } catch (e) {
+                    app = firebase.initializeApp(firebaseConfig);
+                }
+
+                db = firebase.database();
+                firebaseInitialized = true;
+                console.log('Firebase initialized successfully');
+                return true;
+            } catch (e) {
+                console.error('Error initializing Firebase:', e);
+                return false;
+            }
+        }
+
+        // Escape HTML to prevent XSS
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Show status message
+        function showStatus(message, type) {
+            const statusMsg = document.getElementById('statusMessage');
+            if (!statusMsg) return;
+
+            statusMsg.textContent = message;
+            statusMsg.className = 'status-message status-' + type;
+            statusMsg.style.display = 'block';
+
+            // Auto hide after 5 seconds
+            setTimeout(() => {
+                statusMsg.style.display = 'none';
+            }, 5000);
+        }
+
+        // Load all cancellations from Firebase
+        function loadPendingCancellations() {
+            if (!initializeFirebase()) {
+                document.getElementById('loadingMessage').textContent = 'Error: Firebase failed to initialize. Please refresh the page.';
+                showStatus('Firebase initialization failed', 'error');
+                return;
+            }
+
+            if (!db) {
+                document.getElementById('loadingMessage').textContent = 'Error: Firebase database is not available.';
+                showStatus('Firebase database not available', 'error');
+                return;
+            }
+
+            try {
+                // Listen for changes in pendingCancellations
+                const pendingCancellationsRef = db.ref('pendingCancellations');
+                
+                pendingCancellationsRef.on('value', (snapshot) => {
+                    pendingCancellations = [];
+                    approvedCancellations = [];
+                    rejectedCancellations = [];
+                    allCancellations = [];
+                    const data = snapshot.val();
+
+                    if (data) {
+                        Object.keys(data).forEach(key => {
+                            const cancelRequest = data[key];
+                            const requestWithKey = {
+                                key: key,
+                                ...cancelRequest
+                            };
+                            
+                            allCancellations.push(requestWithKey);
+                            
+                            if (cancelRequest.status === 'pending') {
+                                pendingCancellations.push(requestWithKey);
+                            } else if (cancelRequest.status === 'approved') {
+                                approvedCancellations.push(requestWithKey);
+                            } else if (cancelRequest.status === 'rejected') {
+                                rejectedCancellations.push(requestWithKey);
+                            }
+                        });
+                    }
+
+                    // Sort by requested date (newest first)
+                    const sortByDate = (arr) => {
+                        return arr.sort((a, b) => {
+                            const dateA = new Date(a.requestedAt || a.receipt?.cancelRequestedAt || a.approvedAt || a.rejectedAt || 0);
+                            const dateB = new Date(b.requestedAt || b.receipt?.cancelRequestedAt || b.approvedAt || b.rejectedAt || 0);
+                            return dateB - dateA;
+                        });
+                    };
+
+                    pendingCancellations = sortByDate(pendingCancellations);
+                    approvedCancellations = sortByDate(approvedCancellations);
+                    rejectedCancellations = sortByDate(rejectedCancellations);
+                    allCancellations = sortByDate(allCancellations);
+
+                    applyCurrentFilter();
+                    renderTable();
+                    
+                    document.getElementById('loadingMessage').style.display = 'none';
+                }, (error) => {
+                    console.error('Error loading cancellations:', error);
+                    document.getElementById('loadingMessage').textContent = 'Error loading data. Please refresh the page.';
+                    showStatus('Error loading cancellations: ' + error.message, 'error');
+                });
+            } catch (e) {
+                console.error('Error in loadPendingCancellations:', e);
+                document.getElementById('loadingMessage').textContent = 'Error loading data. Please refresh the page.';
+                showStatus('Error: ' + e.message, 'error');
+            }
+        }
+
+        // Filter by status
+        function filterByStatus(status, buttonElement) {
+            currentFilter = status;
+            
+            // Update active button
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            if (buttonElement) {
+                buttonElement.classList.add('active');
+            } else {
+                // Fallback: find button by data-status attribute
+                const btn = document.querySelector(`.filter-btn[data-status="${status}"]`);
+                if (btn) btn.classList.add('active');
+            }
+            
+            applyCurrentFilter();
+            renderTable();
+        }
+
+        // Apply current filter
+        function applyCurrentFilter() {
+            switch(currentFilter) {
+                case 'pending':
+                    filteredCancellations = [...pendingCancellations];
+                    break;
+                case 'approved':
+                    filteredCancellations = [...approvedCancellations];
+                    break;
+                case 'rejected':
+                    filteredCancellations = [...rejectedCancellations];
+                    break;
+                case 'all':
+                    filteredCancellations = [...allCancellations];
+                    break;
+                default:
+                    filteredCancellations = [...pendingCancellations];
+            }
+            
+            // Apply search filter if any
+            const searchInput = document.getElementById('searchInput');
+            if (searchInput && searchInput.value.trim() !== '') {
+                filterCancellations(searchInput.value);
+            }
+        }
+
+        // Render table with cancellations
+        function renderTable() {
+            const tbody = document.getElementById('approvalTableBody');
+            const table = document.getElementById('approvalTable');
+            const emptyState = document.getElementById('emptyState');
+
+            if (!tbody) return;
+
+            if (filteredCancellations.length === 0) {
+                table.style.display = 'none';
+                emptyState.style.display = 'block';
+                const statusText = currentFilter === 'pending' ? 'pending' : 
+                                 currentFilter === 'approved' ? 'approved' : 
+                                 currentFilter === 'rejected' ? 'declined' : 'cancellation';
+                emptyState.textContent = `No ${statusText} cancellation requests found.`;
+                return;
+            }
+
+            table.style.display = 'table';
+            emptyState.style.display = 'none';
+
+            tbody.innerHTML = filteredCancellations.map(cancelRequest => {
+                const receipt = cancelRequest.receipt || cancelRequest;
+                const requestedAt = cancelRequest.requestedAt || receipt.cancelRequestedAt || '';
+                const dateTime = new Date(requestedAt).toLocaleString() || 'N/A';
+                const status = cancelRequest.status || 'pending';
+                
+                let statusBadge = '';
+                let actionButtons = '';
+                
+                if (status === 'pending') {
+                    statusBadge = '<span class="status-badge status-pending">Pending</span>';
+                    actionButtons = `
+                        <div class="action-buttons">
+                            <button class="btn-approve" onclick="approveCancellation('${cancelRequest.key}', '${escapeHtml(receipt.id)}')" title="Approve Cancellation">✓</button>
+                            <button class="btn-reject" onclick="rejectCancellation('${cancelRequest.key}', '${escapeHtml(receipt.id)}')" title="Reject Cancellation">×</button>
+                        </div>
+                    `;
+                } else if (status === 'approved') {
+                    const approvedAt = cancelRequest.approvedAt ? new Date(cancelRequest.approvedAt).toLocaleString() : 'N/A';
+                    statusBadge = '<span class="status-badge status-approved">Approved</span>';
+                    actionButtons = `<div style="text-align: center; color: #666; font-size: 12px;">Approved<br>${escapeHtml(approvedAt)}</div>`;
+                } else if (status === 'rejected') {
+                    const rejectedAt = cancelRequest.rejectedAt ? new Date(cancelRequest.rejectedAt).toLocaleString() : 'N/A';
+                    statusBadge = '<span class="status-badge status-rejected">Declined</span>';
+                    actionButtons = `<div style="text-align: center; color: #666; font-size: 12px;">Declined<br>${escapeHtml(rejectedAt)}</div>`;
+                }
+
+                return `
+                    <tr>
+                        <td><strong>${escapeHtml(receipt.refNumber || 'N/A')}</strong></td>
+                        <td>${escapeHtml(receipt.dateTime || dateTime)}</td>
+                        <td>${escapeHtml(receipt.entryType || 'N/A')}</td>
+                        <td>${escapeHtml(receipt.address || 'N/A')}</td>
+                        <td>₱${(receipt.totalAmount || 0).toFixed(2)}</td>
+                        <td>${escapeHtml(receipt.createdBy || 'N/A')}${receipt.createdByRole ? ' (' + escapeHtml(receipt.createdByRole) + ')' : ''}</td>
+                        <td>${escapeHtml(dateTime)}</td>
+                        <td>${statusBadge}</td>
+                        <td>${actionButtons}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // Approve cancellation
+        function approveCancellation(cancelRequestKey, receiptId) {
+            if (!confirm('Are you sure you want to approve this cancellation?')) {
+                return;
+            }
+
+            try {
+                if (!initializeFirebase() || !db) {
+                    showStatus('Firebase is not available', 'error');
+                    return;
+                }
+
+                // Update the cancellation request status to approved
+                const cancelRef = db.ref('pendingCancellations/' + cancelRequestKey);
+                
+                cancelRef.update({
+                    status: 'approved',
+                    approvedAt: new Date().toISOString(),
+                    approvedBy: 'Admin' // You can modify this to track who approved
+                })
+                .then(() => {
+                    // Also sync approval to cancellations node for main app to check
+                    const approvalRef = db.ref('cancellationApprovals/' + receiptId);
+                    approvalRef.set({
+                        receiptId: receiptId,
+                        status: 'approved',
+                        approvedAt: new Date().toISOString(),
+                        approvedBy: 'Admin'
+                    })
+                    .then(() => {
+                        showStatus('Cancellation approved successfully!', 'success');
+                        // Remove from pending list (it will be updated by the listener)
+                    })
+                    .catch((error) => {
+                        console.error('Error syncing approval:', error);
+                        showStatus('Error syncing approval: ' + error.message, 'error');
+                    });
+                })
+                .catch((error) => {
+                    console.error('Error approving cancellation:', error);
+                    showStatus('Error approving cancellation: ' + error.message, 'error');
+                });
+            } catch (e) {
+                console.error('Error in approveCancellation:', e);
+                showStatus('Error: ' + e.message, 'error');
+            }
+        }
+
+        // Reject cancellation
+        function rejectCancellation(cancelRequestKey, receiptId) {
+            if (!confirm('Are you sure you want to reject this cancellation request?')) {
+                return;
+            }
+
+            try {
+                if (!initializeFirebase() || !db) {
+                    showStatus('Firebase is not available', 'error');
+                    return;
+                }
+
+                // Update the cancellation request status to rejected
+                const cancelRef = db.ref('pendingCancellations/' + cancelRequestKey);
+                
+                cancelRef.update({
+                    status: 'rejected',
+                    rejectedAt: new Date().toISOString(),
+                    rejectedBy: 'Admin' // You can modify this to track who rejected
+                })
+                .then(() => {
+                    // Also sync rejection to cancellations node for main app to check
+                    const rejectionRef = db.ref('cancellationApprovals/' + receiptId);
+                    rejectionRef.set({
+                        receiptId: receiptId,
+                        status: 'rejected',
+                        rejectedAt: new Date().toISOString(),
+                        rejectedBy: 'Admin'
+                    })
+                    .then(() => {
+                        showStatus('Cancellation request rejected.', 'info');
+                        // Remove from pending list (it will be updated by the listener)
+                    })
+                    .catch((error) => {
+                        console.error('Error syncing rejection:', error);
+                        showStatus('Error syncing rejection: ' + error.message, 'error');
+                    });
+                })
+                .catch((error) => {
+                    console.error('Error rejecting cancellation:', error);
+                    showStatus('Error rejecting cancellation: ' + error.message, 'error');
+                });
+            } catch (e) {
+                console.error('Error in rejectCancellation:', e);
+                showStatus('Error: ' + e.message, 'error');
+            }
+        }
+
+        // Search functionality
+        function filterCancellations(searchTerm) {
+            if (!searchTerm || searchTerm.trim() === '') {
+                applyCurrentFilter();
+            } else {
+                const searchLower = searchTerm.toLowerCase().trim();
+                let sourceArray = [];
+                
+                switch(currentFilter) {
+                    case 'pending':
+                        sourceArray = pendingCancellations;
+                        break;
+                    case 'approved':
+                        sourceArray = approvedCancellations;
+                        break;
+                    case 'rejected':
+                        sourceArray = rejectedCancellations;
+                        break;
+                    case 'all':
+                        sourceArray = allCancellations;
+                        break;
+                    default:
+                        sourceArray = pendingCancellations;
+                }
+                
+                filteredCancellations = sourceArray.filter(cancelRequest => {
+                    const receipt = cancelRequest.receipt || cancelRequest;
+                    return (
+                        (receipt.refNumber && receipt.refNumber.toLowerCase().includes(searchLower)) ||
+                        (receipt.address && receipt.address.toLowerCase().includes(searchLower)) ||
+                        (receipt.entryType && receipt.entryType.toLowerCase().includes(searchLower)) ||
+                        (receipt.createdBy && receipt.createdBy.toLowerCase().includes(searchLower))
+                    );
+                });
+            }
+            renderTable();
+        }
+
+        // Initialize when page loads
+        window.addEventListener('DOMContentLoaded', function() {
+            // Make functions globally accessible
+            window.approveCancellation = approveCancellation;
+            window.rejectCancellation = rejectCancellation;
+            window.filterByStatus = filterByStatus;
+
+            // Initialize Firebase and load data
+            if (typeof firebase !== 'undefined') {
+                initializeFirebase();
+                loadPendingCancellations();
+            } else {
+                document.getElementById('loadingMessage').textContent = 'Error: Firebase scripts not loaded. Please refresh the page.';
+            }
+
+            // Search input handler
+            const searchInput = document.getElementById('searchInput');
+            if (searchInput) {
+                searchInput.addEventListener('input', function() {
+                    filterCancellations(this.value);
+                });
+            }
+        });
+    </script>
+</body>
+</html>

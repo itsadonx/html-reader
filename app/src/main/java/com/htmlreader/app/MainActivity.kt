@@ -117,11 +117,10 @@ class MainActivity : AppCompatActivity() {
                 try {
                     loadUri(Uri.parse(savedUri))
                 } catch (_: Exception) {
-                    openHtmlFilePicker()
+                    loadBundledHtml()
                 }
             } else {
-                webView.loadUrl("about:blank")
-                openHtmlFilePicker()
+                loadBundledHtml()
             }
         }
 
@@ -152,16 +151,21 @@ class MainActivity : AppCompatActivity() {
         webView.loadUrl(uri.toString())
     }
 
+    private fun loadBundledHtml() {
+        webView.loadUrl("file:///android_asset/index.html")
+    }
+
     private fun injectPrintOverride(webView: WebView?) {
         if (webView == null) return
         val script = """
             (function() {
+                var doPrint = function() {
+                    var w = window.top || window;
+                    if (w.HtmlReaderPrint && typeof w.HtmlReaderPrint.print === 'function') {
+                        w.HtmlReaderPrint.print();
+                    }
+                };
                 try {
-                    var doPrint = function() {
-                        if (window.HtmlReaderPrint && typeof window.HtmlReaderPrint.print === 'function') {
-                            window.HtmlReaderPrint.print();
-                        }
-                    };
                     window.print = doPrint;
                     if (typeof Object.defineProperty === 'function') {
                         try {
@@ -169,11 +173,22 @@ class MainActivity : AppCompatActivity() {
                         } catch (e) {}
                     }
                 } catch (e) {}
+                try {
+                    var frames = document.getElementsByTagName('iframe');
+                    for (var i = 0; i < frames.length; i++) {
+                        try {
+                            if (frames[i].contentWindow) frames[i].contentWindow.print = doPrint;
+                        } catch (e) {}
+                    }
+                } catch (e) {}
             })();
         """.trimIndent()
-        webView.postDelayed({
+        fun runInject() {
             webView.evaluateJavascript(script, null)
-        }, 300)
+        }
+        webView.postDelayed({ runInject() }, 200)
+        webView.postDelayed({ runInject() }, 800)
+        webView.postDelayed({ runInject() }, 2000)
     }
 
     private fun printCurrentPage() {

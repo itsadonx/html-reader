@@ -16,7 +16,7 @@ if (-not $javaCmd) {
     Write-Host "Download: https://adoptium.net/temurin/releases/" -ForegroundColor Gray
     exit 1
 }
-& java -version 2>&1
+try { $null = & java -version 2>&1 } catch { }
 Write-Host "OK" -ForegroundColor Green
 Write-Host ""
 
