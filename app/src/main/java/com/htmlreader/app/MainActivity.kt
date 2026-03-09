@@ -6,6 +6,8 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.print.PrintAttributes
 import android.print.PrintManager
 import android.view.View
@@ -69,10 +71,13 @@ class MainActivity : AppCompatActivity() {
                 view: WebView?,
                 request: WebResourceRequest?
             ): Boolean {
-                request?.url?.toString()?.let { url ->
-                    if (!url.startsWith("file://") && !url.startsWith("content://")) {
-                        view?.loadUrl(url)
-                    }
+                val url = request?.url?.toString() ?: return false
+                if (url == "entrancepass://print" || url == "https://entrancepass.app/print") {
+                    view?.post { printCurrentPage() }
+                    return true
+                }
+                if (!url.startsWith("file://") && !url.startsWith("content://")) {
+                    view?.loadUrl(url)
                 }
                 return false
             }
@@ -163,6 +168,8 @@ class MainActivity : AppCompatActivity() {
                     var w = window.top || window;
                     if (w.HtmlReaderPrint && typeof w.HtmlReaderPrint.print === 'function') {
                         w.HtmlReaderPrint.print();
+                    } else {
+                        try { window.location.href = 'entrancepass://print'; } catch (e) {}
                     }
                 };
                 try {
@@ -192,18 +199,20 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun printCurrentPage() {
-        val printManager = getSystemService(Context.PRINT_SERVICE) as? PrintManager
-        if (printManager == null) {
+        val pm = getSystemService(Context.PRINT_SERVICE) as? PrintManager
+        if (pm == null) {
             Toast.makeText(this, "Print not available", Toast.LENGTH_SHORT).show()
             return
         }
-        val jobName = "HTML Reader Document"
-        val adapter = webView.createPrintDocumentAdapter(jobName)
-        try {
-            printManager.print(jobName, adapter, PrintAttributes.Builder().build())
-        } catch (e: Exception) {
-            Toast.makeText(this, "Print failed: ${e.message}", Toast.LENGTH_LONG).show()
-        }
+        val jobName = getString(R.string.app_name) + " Document"
+        Handler(Looper.getMainLooper()).postDelayed({
+            try {
+                val adapter = webView.createPrintDocumentAdapter(jobName)
+                pm.print(jobName, adapter, PrintAttributes.Builder().build())
+            } catch (e: Exception) {
+                Toast.makeText(this, "Print failed: ${e.message}", Toast.LENGTH_LONG).show()
+            }
+        }, 150)
     }
 
     class PrintBridge(private val activity: MainActivity) {
