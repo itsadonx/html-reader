@@ -1,6 +1,7 @@
 package com.htmlreader.app
 
 import android.annotation.SuppressLint
+import android.content.Intent
 import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Bundle
@@ -15,6 +16,7 @@ import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.Toolbar
+import androidx.core.content.edit
 
 class MainActivity : AppCompatActivity() {
 
@@ -22,11 +24,17 @@ class MainActivity : AppCompatActivity() {
     private lateinit var progressBar: ProgressBar
     private lateinit var toolbar: Toolbar
 
+    private val prefs by lazy { getSharedPreferences("html_reader", MODE_PRIVATE) }
+    private val lastUriKey = "last_html_uri"
+
     private val openFileLauncher = registerForActivityResult(
         ActivityResultContracts.OpenDocument()
     ) { uri: Uri? ->
-        uri?.let { loadUri(it) }
-            ?: run { Toast.makeText(this, "No file selected", Toast.LENGTH_SHORT).show() }
+        if (uri != null) {
+            saveAndLoadUri(uri)
+        } else {
+            Toast.makeText(this, "No file selected", Toast.LENGTH_SHORT).show()
+        }
     }
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -36,6 +44,7 @@ class MainActivity : AppCompatActivity() {
 
         toolbar = findViewById(R.id.toolbar)
         setSupportActionBar(toolbar)
+        supportActionBar?.setDisplayShowTitleEnabled(false)
 
         webView = findViewById(R.id.webView)
         progressBar = findViewById(R.id.progressBar)
@@ -89,7 +98,17 @@ class MainActivity : AppCompatActivity() {
         if (savedInstanceState != null) {
             webView.restoreState(savedInstanceState)
         } else {
-            webView.loadUrl("about:blank")
+            val savedUri = prefs.getString(lastUriKey, null)
+            if (savedUri != null) {
+                try {
+                    loadUri(Uri.parse(savedUri))
+                } catch (_: Exception) {
+                    openHtmlFilePicker()
+                }
+            } else {
+                webView.loadUrl("about:blank")
+                openHtmlFilePicker()
+            }
         }
 
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
@@ -105,6 +124,14 @@ class MainActivity : AppCompatActivity() {
 
     private fun openHtmlFilePicker() {
         openFileLauncher.launch(arrayOf("text/html", "text/*", "*/*"))
+    }
+
+    private fun saveAndLoadUri(uri: Uri) {
+        try {
+            contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        } catch (_: SecurityException) { }
+        prefs.edit { putString(lastUriKey, uri.toString()) }
+        loadUri(uri)
     }
 
     private fun loadUri(uri: Uri) {
