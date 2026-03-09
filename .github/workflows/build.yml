@@ -25,6 +25,9 @@ jobs:
         with:
           packages: tools platform-tools platforms;android-34 build-tools;34.0.0
 
+      - name: Add build-tools to PATH
+        run: echo "$ANDROID_HOME/build-tools/34.0.0" >> $GITHUB_PATH
+
       - name: Create Gradle wrapper
         run: |
           curl -sL -o gradle.zip https://services.gradle.org/distributions/gradle-8.2-bin.zip
@@ -37,7 +40,7 @@ jobs:
           echo "sdk.dir=$ANDROID_HOME" >> local.properties
 
       - name: Build debug APK
-        run: ./gradlew assembleDebug --no-daemon
+        run: ./gradlew assembleDebug --no-daemon --stacktrace
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
