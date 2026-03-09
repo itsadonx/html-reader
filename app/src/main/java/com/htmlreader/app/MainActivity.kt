@@ -62,7 +62,7 @@ class MainActivity : AppCompatActivity() {
             allowContentAccess = true
         }
 
-        webView.addJavascriptInterface(PrintBridge(this), "AndroidPrint")
+        webView.addJavascriptInterface(PrintBridge(this), "HtmlReaderPrint")
 
         webView.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(
@@ -85,10 +85,7 @@ class MainActivity : AppCompatActivity() {
             override fun onPageFinished(view: WebView?, url: String?) {
                 super.onPageFinished(view, url)
                 progressBar.visibility = View.GONE
-                view?.evaluateJavascript(
-                    "(function(){ window.print = function(){ if(window.AndroidPrint) window.AndroidPrint.print(); }; })();",
-                    null
-                )
+                injectPrintOverride(view)
             }
         }
 
@@ -99,10 +96,17 @@ class MainActivity : AppCompatActivity() {
         }
 
         toolbar.setOnMenuItemClickListener { item ->
-            if (item.itemId == R.id.action_open_file) {
-                openHtmlFilePicker()
-                true
-            } else false
+            when (item.itemId) {
+                R.id.action_open_file -> {
+                    openHtmlFilePicker()
+                    true
+                }
+                R.id.action_print -> {
+                    printCurrentPage()
+                    true
+                }
+                else -> false
+            }
         }
 
         if (savedInstanceState != null) {
@@ -148,21 +152,53 @@ class MainActivity : AppCompatActivity() {
         webView.loadUrl(uri.toString())
     }
 
+    private fun injectPrintOverride(webView: WebView?) {
+        if (webView == null) return
+        val script = """
+            (function() {
+                try {
+                    var doPrint = function() {
+                        if (window.HtmlReaderPrint && typeof window.HtmlReaderPrint.print === 'function') {
+                            window.HtmlReaderPrint.print();
+                        }
+                    };
+                    window.print = doPrint;
+                    if (typeof Object.defineProperty === 'function') {
+                        try {
+                            Object.defineProperty(window, 'print', { value: doPrint, writable: true, configurable: true });
+                        } catch (e) {}
+                    }
+                } catch (e) {}
+            })();
+        """.trimIndent()
+        webView.postDelayed({
+            webView.evaluateJavascript(script, null)
+        }, 300)
+    }
+
     private fun printCurrentPage() {
         val printManager = getSystemService(Context.PRINT_SERVICE) as? PrintManager
         if (printManager == null) {
             Toast.makeText(this, "Print not available", Toast.LENGTH_SHORT).show()
             return
         }
-        val jobName = "HTML Reader - ${System.currentTimeMillis()}"
+        val jobName = "HTML Reader Document"
         val adapter = webView.createPrintDocumentAdapter(jobName)
-        printManager.print(jobName, adapter, PrintAttributes.Builder().build())
+        try {
+            printManager.print(jobName, adapter, PrintAttributes.Builder().build())
+        } catch (e: Exception) {
+            Toast.makeText(this, "Print failed: ${e.message}", Toast.LENGTH_LONG).show()
+        }
     }
 
     class PrintBridge(private val activity: MainActivity) {
         @JavascriptInterface
         fun print() {
-            activity.runOnUiThread { activity.printCurrentPage() }
+            activity.runOnUiThread {
+                activity.webView.post {
+                    activity.printCurrentPage()
+                }
+            }
         }
     }
 

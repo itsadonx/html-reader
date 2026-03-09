@@ -6,4 +6,8 @@
         android:icon="@drawable/ic_file_open"
         android:title="Open HTML file"
         app:showAsAction="ifRoom" />
+    <item
+        android:id="@+id/action_print"
+        android:title="Print (test)"
+        app:showAsAction="never" />
 </menu>
